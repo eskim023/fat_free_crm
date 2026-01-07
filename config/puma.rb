@@ -18,7 +18,10 @@ preload_app! unless rails_env == 'development'
 plugin :tmp_restart
 
 unless Puma.jruby? || Puma.windows? # workers supported
-  workers Integer(ENV['WEB_CONCURRENCY'] || 2)
+  # In development, default to a single process to reduce flakiness and
+  # simplify debugging. In other envs, keep the historical default.
+  default_workers = (rails_env == 'development' ? 0 : 2)
+  workers Integer(ENV.fetch('WEB_CONCURRENCY', default_workers))
 
   before_fork do
     ActiveRecord::Base.connection_pool.disconnect!

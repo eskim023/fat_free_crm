@@ -10,7 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_08_06_025815) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_07_153000) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
   create_table "account_contacts", force: :cascade do |t|
     t.integer "account_id"
     t.integer "contact_id"
@@ -255,12 +258,12 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_06_025815) do
     t.text "collection"
     t.boolean "disabled"
     t.boolean "required"
-    t.integer "maxlength", limit: 4
+    t.integer "maxlength"
     t.datetime "created_at", precision: nil
     t.datetime "updated_at", precision: nil
     t.integer "pair_id"
     t.text "settings"
-    t.integer "minlength", limit: 4, default: 0
+    t.integer "minlength", default: 0
     t.string "pattern"
     t.string "autofocus"
     t.string "autocomplete"
@@ -430,6 +433,20 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_06_025815) do
     t.index ["user_id", "name", "deleted_at"], name: "index_tasks_on_user_id_and_name_and_deleted_at", unique: true
   end
 
+  create_table "user_identities", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "provider", null: false
+    t.string "uid", null: false
+    t.string "email"
+    t.string "token"
+    t.string "refresh_token"
+    t.datetime "expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider", "uid"], name: "index_user_identities_on_provider_and_uid", unique: true
+    t.index ["user_id"], name: "index_user_identities_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "username", limit: 32, default: "", null: false
     t.string "email", limit: 254
@@ -494,4 +511,5 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_06_025815) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "user_identities", "users"
 end

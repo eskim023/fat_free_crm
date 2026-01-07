@@ -47,12 +47,13 @@
 
 class User < ActiveRecord::Base
   devise :database_authenticatable, :registerable, :confirmable,
-         :encryptable, :recoverable, :rememberable, :trackable
-  before_create :suspend_if_needs_approval
+         :encryptable, :recoverable, :rememberable, :trackable,
+         :omniauthable, omniauth_providers: %i[google_oauth2]
 
   has_one :avatar, as: :entity, dependent: :destroy  # Personal avatar.
   has_many :avatars                                  # As owner who uploaded it, ex. Contact avatar.
   has_many :comments, as: :commentable               # As owner who created a comment.
+  has_many :user_identities, dependent: :destroy
   has_many :accounts
   has_many :campaigns
   has_many :leads
@@ -66,10 +67,10 @@ class User < ActiveRecord::Base
 
   has_paper_trail versions: { class_name: 'Version' }, ignore: [:last_sign_in_at]
 
-  scope :by_id, -> { order('id DESC') }
+  scope :by_id, -> { order(id: :desc) }
   # TODO: /home/clockwerx/.rbenv/versions/2.5.3/lib/ruby/gems/2.5.0/gems/activerecord-5.2.3/lib/active_record/scoping/named.rb:175:in `scope': You tried to define a scope named "without" on the model "User", but ActiveRecord::Relation already defined an instance method with the same name. (ArgumentError)
   scope :without_user, ->(user) { where('id != ?', user.id).by_name }
-  scope :by_name, -> { order('first_name, last_name, email') }
+  scope :by_name, -> { order(:first_name, :last_name, :email) }
 
   scope :text_search, lambda { |query|
     query = query.gsub(/[^\w\s\-.'\p{L}]/u, '').strip
@@ -113,19 +114,13 @@ class User < ActiveRecord::Base
   end
 
   #----------------------------------------------------------------------------
-  def awaits_approval?
-    suspended? && sign_in_count == 0 && Setting.user_signup == :needs_approval
-  end
-
   def active_for_authentication?
-    super && confirmed? && !awaits_approval? && !suspended?
+    super && confirmed? && !suspended?
   end
 
   def inactive_message
     if !confirmed?
       super
-    elsif awaits_approval?
-      I18n.t(:msg_account_not_approved)
     elsif suspended?
       I18n.t(:msg_invalig_login)
     else
@@ -136,7 +131,7 @@ class User < ActiveRecord::Base
   # Send emails to active users only
   #----------------------------------------------------------------------------
   def emailable?
-    confirmed? && !awaits_approval? && !suspended? && email.present?
+    confirmed? && !suspended? && email.present?
   end
 
   #----------------------------------------------------------------------------
@@ -177,12 +172,6 @@ class User < ActiveRecord::Base
     current_user != self && !has_related_assets?
   end
 
-  # Suspend newly created user if signup requires an approval.
-  #----------------------------------------------------------------------------
-  def suspend_if_needs_approval
-    self.suspended_at = Time.now if Setting.user_signup == :needs_approval && !admin
-  end
-
   # Prevent deleting a user unless she has no artifacts left.
   #----------------------------------------------------------------------------
   def has_related_assets?
@@ -198,7 +187,7 @@ class User < ActiveRecord::Base
   #----------------------------------------------------------------------------
   class << self
     def can_signup?
-      %i[allowed needs_approval].include? Setting.user_signup
+      Setting.user_signup == :allowed
     end
 
     # Overrides Devise sign-in to use either username or email (case-insensitive)
@@ -208,6 +197,50 @@ class User < ActiveRecord::Base
       if login = conditions.delete(:email)
         where(conditions.to_h).where(["lower(username) = :value OR lower(email) = :value", { value: login.downcase }]).first
       end
+    end
+
+    def from_omniauth(auth)
+      identity = UserIdentity.find_or_initialize_by(provider: auth.provider, uid: auth.uid)
+      identity.email = auth.dig("info", "email")
+      identity.token = auth.dig("credentials", "token")
+      identity.refresh_token ||= auth.dig("credentials", "refresh_token")
+      identity.expires_at = Time.at(auth.dig("credentials", "expires_at").to_i) if auth.dig("credentials", "expires_at").present?
+
+      return identity.user if identity.user
+
+      email = identity.email.to_s.downcase
+      user = User.find_by(email: email)
+
+      unless user
+        return nil unless can_signup?
+
+        base = email.split("@").first.to_s.downcase
+        base = base.gsub(/[^a-z0-9_-]+/, "_").gsub(/\A_+|_+\z/, "")
+        base = "user" if base.blank?
+
+        username = base
+        i = 1
+        while User.exists?(username: username)
+          i += 1
+          username = "#{base}_#{i}"
+        end
+
+        user = User.new(
+          email: email,
+          username: username,
+          first_name: auth.dig("info", "first_name"),
+          last_name: auth.dig("info", "last_name"),
+          confirmed_at: Time.current,
+          password: Devise.friendly_token.first(32)
+        )
+        user.save
+      end
+
+      return nil unless user&.persisted?
+
+      identity.user = user
+      identity.save
+      user
     end
   end
 

@@ -59,6 +59,7 @@ group :development do
 end
 
 group :development, :test do
+  gem 'dotenv-rails'
   gem 'rails-controller-testing'
   gem 'rspec-rails'
   gem 'rspec-activemodel-mocks'
@@ -107,6 +108,8 @@ gem 'bootsnap', require: false
 gem 'devise', '~>4.6'
 gem 'devise-i18n'
 gem "devise-encryptable"
+gem 'omniauth-google-oauth2'
+gem 'omniauth-rails_csrf_protection'
 gem 'tzinfo-data', platforms: %i[mingw mswin x64_mingw jruby]
 gem 'activejob'
 gem 'ransack_ui'
@@ -127,3 +130,5 @@ gem 'base64'
 require "logger"
 
 gem "addressable", "~> 2.8"
+
+gem "omniauth", "~> 2.1"

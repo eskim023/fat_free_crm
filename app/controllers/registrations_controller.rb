@@ -9,6 +9,14 @@ class RegistrationsController < Devise::RegistrationsController
   respond_to :html
   append_view_path 'app/views/devise'
 
+  def new
+    redirect_to new_user_session_path
+  end
+
+  def create
+    redirect_to new_user_session_path
+  end
+
   def edit
     redirect_to profile_path
   end

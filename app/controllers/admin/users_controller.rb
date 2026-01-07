@@ -45,7 +45,6 @@ class Admin::UsersController < Admin::ApplicationController
   #----------------------------------------------------------------------------
   def create
     @user = User.new(user_params)
-    @user.suspend_if_needs_approval
     @user.save
 
     respond_with(@user)

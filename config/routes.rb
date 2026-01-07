@@ -17,7 +17,8 @@ Rails.application.routes.draw do
   devise_for :users, controllers: { registrations: 'registrations',
                                     sessions: 'sessions',
                                     passwords: 'passwords',
-                                    confirmations: 'confirmations' }
+                                    confirmations: 'confirmations',
+                                    omniauth_callbacks: 'omniauth_callbacks' }
 
   devise_scope :user do
     resources :users, only: %i[index show] do

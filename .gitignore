@@ -30,3 +30,6 @@ Design
 .vagrant
 storage/
 .byebug_history
+.env
+.env.*
+!.env.example
