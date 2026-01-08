@@ -73,7 +73,7 @@ class User < ActiveRecord::Base
   scope :by_name, -> { order(:first_name, :last_name, :email) }
 
   scope :text_search, lambda { |query|
-    query = query.gsub(/[^\w\s\-.'\p{L}]/u, '').strip
+    query = query.gsub(/[^\p{L}\p{N}\s.'-]/u, '').strip
     where('upper(username) LIKE upper(:s) OR upper(email) LIKE upper(:s) OR upper(first_name) LIKE upper(:s) OR upper(last_name) LIKE upper(:s)', s: "%#{query}%")
   }
 
@@ -187,7 +187,7 @@ class User < ActiveRecord::Base
   #----------------------------------------------------------------------------
   class << self
     def can_signup?
-      Setting.user_signup == :allowed
+      Setting.user_signup != :not_allowed
     end
 
     # Overrides Devise sign-in to use either username or email (case-insensitive)
@@ -209,10 +209,18 @@ class User < ActiveRecord::Base
       return identity.user if identity.user
 
       email = identity.email.to_s.downcase
-      user = User.find_by(email: email)
+      user = User.where("lower(email) = ?", email).first
+
+      # "Needs approval" is deprecated/disabled; if a legacy user is still suspended/unconfirmed
+      # we allow a successful Google auth to activate them.
+      user&.update_columns(
+        suspended_at: nil,
+        confirmed_at: user&.confirmed_at || Time.current
+      )
 
       unless user
-        return nil unless can_signup?
+        # UI signup may be disabled (Setting.user_signup == :not_allowed), but for Google-only auth
+        # we still want to be able to auto-provision users from the allowed Google domain.
 
         base = email.split("@").first.to_s.downcase
         base = base.gsub(/[^a-z0-9_-]+/, "_").gsub(/\A_+|_+\z/, "")
@@ -233,6 +241,7 @@ class User < ActiveRecord::Base
           confirmed_at: Time.current,
           password: Devise.friendly_token.first(32)
         )
+        user.admin = true unless User.exists?
         user.save
       end
 

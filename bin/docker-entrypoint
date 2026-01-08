@@ -1,0 +1,15 @@
+#!/bin/bash -e
+
+# Enable jemalloc for reduced memory usage and latency.
+if [ -z "${LD_PRELOAD+x}" ]; then
+    LD_PRELOAD=$(find /usr/lib -name libjemalloc.so.2 -print -quit)
+    export LD_PRELOAD
+fi
+
+# NOTE: On Fly we generally run migrations via fly.toml `release_command`.
+# Keep this opt-in for other environments that want automatic prepare on boot.
+if [ "${RUN_DB_PREPARE_ON_START:-}" = "1" ] && [ "$1" = "./bin/rails" ] && [ "$2" = "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "${@}"

@@ -34,6 +34,9 @@ if defined?(FatFreeCRM::Application)
     # Generate digests for assets URLs
     config.assets.digest = true
 
+    # Active Storage service (Fly uses Tigris by default)
+    config.active_storage.service = (ENV["ACTIVE_STORAGE_SERVICE"] || "local").to_sym
+
     # Specifies the header that your server uses for sending files.
     # config.action_dispatch.x_sendfile_header = "X-Sendfile" # for Apache
     # config.action_dispatch.x_sendfile_header = "X-Accel-Redirect" # for NGINX
