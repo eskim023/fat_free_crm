@@ -8,5 +8,8 @@
   = render sidebar if sidebar
   - rescue MissingTemplate
 
-= render "lists/lists"
-= render "shared/recently"
+-# These widgets are rendered on nearly every page and are DB-heavy.
+-# Cache briefly to cut repeated queries and allocations (especially with remote DB latency).
+- cache(["sidebar-widgets", current_user&.id, I18n.locale.to_s], expires_in: 60.seconds) do
+  = render "lists/lists"
+  = render "shared/recently"

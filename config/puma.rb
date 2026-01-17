@@ -21,13 +21,16 @@ unless Puma.jruby? || Puma.windows? # workers supported
   # In development, default to a single process to reduce flakiness and
   # simplify debugging. In other envs, keep the historical default.
   default_workers = (rails_env == 'development' ? 0 : 2)
-  workers Integer(ENV.fetch('WEB_CONCURRENCY', default_workers))
+  workers_count = Integer(ENV.fetch('WEB_CONCURRENCY', default_workers))
+  workers workers_count
 
-  before_fork do
-    ActiveRecord::Base.connection_pool.disconnect!
-  end
+  if workers_count.positive?
+    before_fork do
+      ActiveRecord::Base.connection_pool.disconnect!
+    end
 
-  on_worker_boot do
-    ActiveRecord::Base.establish_connection
+    on_worker_boot do
+      ActiveRecord::Base.establish_connection
+    end
   end
 end

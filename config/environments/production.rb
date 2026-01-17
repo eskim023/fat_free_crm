@@ -46,7 +46,20 @@ if defined?(FatFreeCRM::Application)
 
     # Include generic and useful information about system operation, but avoid logging too much
     # information to avoid inadvertent exposure of personally identifiable information (PII).
-    config.log_level = :info
+    config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info").to_sym
+
+    if ENV["RAILS_LOG_TO_STDOUT"].present?
+      logger = ActiveSupport::Logger.new($stdout)
+      logger.formatter = config.log_formatter
+      config.logger = ActiveSupport::TaggedLogging.new(logger)
+    end
+
+    # Make logs easier to correlate in Fly + Sentry.
+    config.log_tags = [:request_id]
+
+    # Opt-in extra SQL context when investigating performance.
+    # NOTE: This is noisy and has overhead; keep it off unless needed.
+    config.active_record.verbose_query_logs = (ENV["VERBOSE_QUERY_LOGS"] == "1")
 
     # Use a different logger for distributed setups
     # config.logger = SyslogLogger.new
